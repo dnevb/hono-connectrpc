@@ -114,6 +114,63 @@ describe('connectrpcServer', () => {
     expect(res.status).toBe(404)
   })
 
+  it('supports interceptors that add response headers', async () => {
+    const app = connectrpcServer({
+      interceptors: [
+        (next) => async (req) => {
+          const res = await next(req)
+          if (!res.stream) {
+            res.header.set('x-interceptor', 'passed')
+          }
+          return res
+        },
+      ],
+      routes: (router) => {
+        router.service(TestService, {
+          call: (req) => create(CallResponseSchema, { data: req.data }),
+        })
+      },
+    })
+
+    const res = await app.request('http://localhost/test.v1.TestService/Call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: 'hello' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-interceptor')).toBe('passed')
+  })
+
+  it('supports interceptors that modify response messages', async () => {
+    const app = connectrpcServer({
+      interceptors: [
+        (next) => async (req) => {
+          const res = await next(req)
+          if (!res.stream) {
+            const msg = res.message as unknown as { data: string }
+            msg.data = `intercepted: ${msg.data}`
+          }
+          return res
+        },
+      ],
+      routes: (router) => {
+        router.service(TestService, {
+          call: (req) => create(CallResponseSchema, { data: req.data }),
+        })
+      },
+    })
+
+    const res = await app.request('http://localhost/test.v1.TestService/Call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: 'hello' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ data: 'intercepted: hello' })
+  })
+
   it('coexists with other Hono routes', async () => {
     const api = connectrpcServer({
       routes: (router) => {
