@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package test.v1;
+
+service TestService {
+  rpc Call(CallRequest) returns (CallResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message CallRequest {
+  string data = 1;
+}
+
+message CallResponse {
+  string data = 1;
+}
